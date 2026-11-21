@@ -1,13 +1,16 @@
-# Draft issue for ChuanyuXue/tsnkit
+# Issue for ChuanyuXue/tsnkit (ready to paste)
 
-**Title:** Constant flags (`-e_sync`, `-t_slot`, …) are rejected by every algorithm CLI, and `E_SYNC` set via `tsnkit.core` never reaches `smt_wa`
+The patch below is also in `tsnkit-constant-flags.patch` next to this file.
 
-Tested at commit `8924ff2` (v0.3.0), Python 3.13, Linux.
+---
 
-## 1. Constant flags make every scheduler CLI exit
+**Title:** Constant flags (`-e_sync`, `-t_slot`, …) rejected by scheduler CLIs since merge aaea516; `E_SYNC` also never reaches `smt_wa`
 
-`tsnkit/core/_common.py::parse_command_line_args()` calls `parser.parse_args()` **before**
-`parse_command_line_constants(parser)` registers the constant flags, so argparse rejects them:
+**Body:**
+
+Hi, thanks for TSNKit! While using it for a small study on talker timing errors, I ran into two related problems with the constant flags added in #62. Both reproduce on current `main` (8924ff2).
+
+### 1. Every scheduler CLI rejects the constant flags
 
 ```
 $ python -m tsnkit.algorithms.smt_wa task.csv topo.csv -e_sync 100
@@ -16,36 +19,56 @@ $ python -m tsnkit.algorithms.ls task.csv topo.csv -t_slot 200
 ls.py: error: unrecognized arguments: -t_slot 200
 ```
 
-## 2. `core.E_SYNC` does not reach `Link.t_sync`
+`parse_command_line_args()` calls `parser.parse_args()` before `parse_command_line_constants(parser)` has registered the flags. It looks like this came from the merge in aaea516 (2025-11-29), which combined the `--output` change from d147c56 with #62 and kept both `parse_args()` calls.
 
-`parse_command_line_constants` assigns `core.E_SYNC = args.e_sync`, but `_network.py` does
-`from ._constants import T_SLOT, E_SYNC, NUM_PORT`, which copies the value once at import time.
-`Link._t_sync` / `Node._sync_error` therefore stay 0. `smt_wa` reads the guard band through
-`link.t_sync` (`add_flow_trans_const`, `add_delay_const`, `add_frame_isolation_const`), so it
-silently ignores it. `at`, `smt_fr`, `smt_pr` and `i_omt` read `utils.E_SYNC` at call time and *do*
-see it, so the same flag behaves differently across methods.
+### 2. `E_SYNC` doesn't reach `Link.t_sync`, so `smt_wa` ignores it
 
-```python
-import tsnkit.core as core, tsnkit.core._network as N
-core.E_SYNC = 50
-# ... build a network / run smt_wa ...
-N.E_SYNC          # -> 0, every Link has t_sync == 0
+`parse_command_line_constants()` sets `core.E_SYNC`, but `_network.py` does `from ._constants import T_SLOT, E_SYNC, NUM_PORT`, which copies the value once at import time. `Link._t_sync` and `Node._sync_error` therefore stay 0. `smt_wa` reads the guard band through `link.t_sync`, so it silently ignores it, while `at`, `smt_fr`, `smt_pr` and `i_omt` read `utils.E_SYNC` at call time and do see it.
+
+### Proposed fix
+
+```diff
+--- a/tsnkit/core/_common.py
++++ b/tsnkit/core/_common.py
+@@ -50,11 +50,11 @@ def parse_command_line_args():
+-    parsed = parser.parse_args()
+-    ## TODO: Put me somewhere else.
+-    os.makedirs(parsed.output, exist_ok=True)
+-
++    # Register the constant flags (-e_sync, -t_slot, ...) *before* parsing, otherwise
++    # argparse rejects them as "unrecognized arguments".
+     args = parse_command_line_constants(parser)
++    ## TODO: Put me somewhere else.
++    os.makedirs(args.output, exist_ok=True)
+@@ -76,6 +76,11 @@ def parse_command_line_constants(parser: argparse.ArgumentParser):
+     core.NUM_PORT = args.ports
+ 
++    # Modules such as _network copy these values at import time (`from ._constants import
++    # E_SYNC`), so also update the source module they read from at construction time.
++    from . import _constants
++    _constants.E_SYNC = args.e_sync
++
+     return args
+--- a/tsnkit/core/_network.py
++++ b/tsnkit/core/_network.py
+@@ -19,6 +19,7 @@
+ from ._constants import T_SLOT, E_SYNC, NUM_PORT
++from . import _constants
+@@ -43,7 +44,7 @@ class Node(int):
+-        self._sync_error = E_SYNC
++        self._sync_error = _constants.E_SYNC  # read at call time
+@@ -161,7 +162,7 @@ class Link(int):
+-        self._t_sync = E_SYNC
++        self._t_sync = _constants.E_SYNC  # read at call time
 ```
 
-## Proposed fix (attached: `tsnkit-constant-flags.patch`, 12 lines)
+Checked on a 4-switch, 8-flow instance:
+- with the patch, `python -m tsnkit.algorithms.smt_wa task.csv topo.csv -e_sync 100` runs and gives a schedule byte-identical to setting the guard band programmatically;
+- with no flags, `smt_wa`, `ls` and `dt` produce schedules byte-identical to unpatched TSNKit.
 
-* `_common.py`: call `parse_command_line_constants(parser)` first (it registers and parses once),
-  and also update `_constants.E_SYNC`.
-* `_network.py`: read `_constants.E_SYNC` when a `Link`/`Node` is constructed instead of the
-  import-time copy.
+Happy to open a PR instead if that's easier.
 
-Verified on a 4-switch, 8-flow instance:
-* with the patch, `python -m tsnkit.algorithms.smt_wa task topo -e_sync 100` runs and produces a
-  schedule byte-identical to setting the guard band programmatically;
-* without any flag, `smt_wa`, `ls` and `dt` produce byte-identical schedules to unpatched TSNKit.
+### Questions / related
 
-## Open question (not changed by the patch)
-
-`E_SYNC` is used in TSNKit's internal slot unit (`T_SLOT` = 100 ns), whereas `t_proc` / `t_prop`
-in `topo.csv` are in ns and converted. Should `-e_sync` take ns for consistency? The same
-import-time-copy pattern also affects `T_SLOT` in `_network.py`, `_stream.py` and `_config.py`.
+- `E_SYNC` is used in slots (`T_SLOT` = 100 ns), while `t_proc`/`t_prop` in `topo.csv` are in ns. Should `-e_sync` take ns? This is close to your question in #60 about which value wins when `topo.csv` and the flags disagree.
+- `simulation/tas.py` copies `T_PROC` at import time in the same way, assumes 1 Gbps (`size * 8`), and doesn't read `topo.csv` yet (#55). I wrote an event-driven simulator that reads per-link rate, `t_proc` and `t_prop` from `topo.csv` and matches `tas.py` frame for frame on uniform topologies (https://github.com/brkuhgk/tsn-qbv-lab). Glad to help port that if it's useful.
