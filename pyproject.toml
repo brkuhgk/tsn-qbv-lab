@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qbvlab"
+version = "0.1.0"
+description = "Visualise, benchmark and stress-test IEEE 802.1Qbv schedules produced by TSNKit (simulation only)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "GPL-3.0-or-later"
+authors = [{ name = "brkuhgk" }]
+dependencies = [
+    # TSNKit pinned to the exact commit this project was developed and tested against.
+    "tsnkit @ git+https://github.com/ChuanyuXue/tsnkit@8924ff2f64329d99d3279602a1b7c96782ae5473",
+    "numpy>=1.21",
+    "pandas>=1.4",
+    "matplotlib>=3.5",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+qbvlab = "qbvlab.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["qbvlab*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: cross-checks against TSNKit's own (slower) simulator"]
