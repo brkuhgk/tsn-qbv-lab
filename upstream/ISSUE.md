@@ -1,6 +1,7 @@
-# Issue for ChuanyuXue/tsnkit (ready to paste)
+# TSNKit issue
 
-The patch below is also in `tsnkit-constant-flags.patch` next to this file.
+Filed on 2026-11-21 as [ChuanyuXue/tsnkit#65](https://github.com/ChuanyuXue/tsnkit/issues/65).
+The text below is exactly what was posted. The patch is also in `tsnkit-constant-flags.patch` next to this file.
 
 ---
 

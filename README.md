@@ -50,7 +50,8 @@ Rows 1–3 come from the benchmark (section 2), rows 4–5 from the talker-error
 * **The mechanism is predictable.** Under the "every frame late by e" model, the simulated
   first-switch miss rate equals the share of frames whose zero-error slack is below e, *exactly*, in
   all 16 non-zero cases (on the compared instances and on all 10).
-* **Found and fixed two TSNKit issues** (see [Upstream contribution](#upstream-contribution)).
+* **Found and fixed two TSNKit issues**, reported as
+  [ChuanyuXue/tsnkit#65](https://github.com/ChuanyuXue/tsnkit/issues/65) (see [Upstream contribution](#upstream-contribution)).
 
 ---
 
@@ -200,8 +201,9 @@ reception at the listener.
 
 ## Upstream contribution
 
-While setting a guard band I found two issues in TSNKit (`upstream/ISSUE.md`, with a 12-line
-patch in `upstream/tsnkit-constant-flags.patch`):
+While setting a guard band I found two issues in TSNKit, now reported upstream as
+[ChuanyuXue/tsnkit#65](https://github.com/ChuanyuXue/tsnkit/issues/65), with a 12-line patch
+(`upstream/ISSUE.md`, `upstream/tsnkit-constant-flags.patch`):
 
 1. **Every scheduler CLI rejects the constant flags** (`-e_sync`, `-t_slot`, `-t_proc`, …):
    `parse_command_line_args()` parses before `parse_command_line_constants()` registers them,
