@@ -1,0 +1,9 @@
+{
+  "num_sw": 4,
+  "num_flows": 8,
+  "seed": 42,
+  "topo": "line",
+  "period_opt": 1,
+  "size_opt": 2,
+  "deadline_opt": 1
+}

@@ -1,0 +1,9 @@
+{
+  "num_sw": 8,
+  "num_flows": 80,
+  "seed": 0,
+  "topo": "mesh",
+  "period_opt": 4,
+  "size_opt": 3,
+  "deadline_opt": 4
+}

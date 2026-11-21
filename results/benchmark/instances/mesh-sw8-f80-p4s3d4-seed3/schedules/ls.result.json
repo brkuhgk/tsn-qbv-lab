@@ -1,0 +1,1 @@
+{"status": "fail", "solve_cpu_s": 0.342, "total_cpu_s": 0.745, "peak_mem_mb": 87.758, "wall_s": 0.42769206200000554, "stdout_tail": "| 20~21:22:48   | ls            | fail   | 0.342      | 0.745      | 87.758    \n"}
