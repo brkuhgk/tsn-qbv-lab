@@ -1,0 +1,62 @@
+diff --git a/tsnkit/core/_common.py b/tsnkit/core/_common.py
+index 3aa0607..fe3311e 100644
+--- a/tsnkit/core/_common.py
++++ b/tsnkit/core/_common.py
+@@ -50,11 +50,11 @@ def parse_command_line_args():
+         help="The name of the experiment.",
+     )
+ 
+-    parsed = parser.parse_args()
+-    ## TODO: Put me somewhere else.
+-    os.makedirs(parsed.output, exist_ok=True)
+-
++    # Register the constant flags (-e_sync, -t_slot, ...) *before* parsing, otherwise
++    # argparse rejects them as "unrecognized arguments".
+     args = parse_command_line_constants(parser)
++    ## TODO: Put me somewhere else.
++    os.makedirs(args.output, exist_ok=True)
+ 
+     # Parse the arguments and return them
+     return args
+@@ -76,6 +76,11 @@ def parse_command_line_constants(parser: argparse.ArgumentParser):
+     core.MAX_NUM_QUEUE = args.max_q
+     core.NUM_PORT = args.ports
+ 
++    # Modules such as _network copy these values at import time (`from ._constants import
++    # E_SYNC`), so also update the source module they read from at construction time.
++    from . import _constants
++    _constants.E_SYNC = args.e_sync
++
+     return args
+ 
+ 
+diff --git a/tsnkit/core/_network.py b/tsnkit/core/_network.py
+index 6c3b833..c617ec0 100644
+--- a/tsnkit/core/_network.py
++++ b/tsnkit/core/_network.py
+@@ -19,6 +19,7 @@ from typing import (
+     cast,
+ )
+ from ._constants import T_SLOT, E_SYNC, NUM_PORT
++from . import _constants
+ from ._common import _interface
+ 
+ import pandas as pd
+@@ -43,7 +44,7 @@ class Node(int):
+     def __init__(self, id: int, type: NodeType) -> None:
+         self._id = id
+         self._type = type  ## NodeType
+-        self._sync_error = E_SYNC
++        self._sync_error = _constants.E_SYNC  # read at call time
+         self._num_port = NUM_PORT
+ 
+     def __new__(cls, *args, **kwargs):
+@@ -161,7 +162,7 @@ class Link(int):
+ 
+         self._t_proc = t_proc
+         self._t_prop = t_prop
+-        self._t_sync = E_SYNC
++        self._t_sync = _constants.E_SYNC  # read at call time
+         self._q_num = q_num
+         self._rate = rate
+ 
